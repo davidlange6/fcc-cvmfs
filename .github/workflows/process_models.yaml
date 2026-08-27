@@ -1,0 +1,97 @@
+name: Process FCC Models
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'fcc_models/*.yml'
+
+jobs:
+  process-models:
+    # Only run when the PR was actually merged (not just closed/rejected)
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to push the updated summary files back
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          # Fetch full history so we can diff against the PR base
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Find changed package files
+        id: changed
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.sha }}
+
+          # All yml files added or modified in fcc_models/ that are not summary files
+          FILES=$(git diff --name-only --diff-filter=AM "$BASE" "$HEAD" -- 'fcc_models/*.yml' \
+                  | grep -v 'fcc_models/summary_' || true)
+
+          if [ -z "$FILES" ]; then
+            echo "No non-summary model files changed. Nothing to do."
+            echo "package_files=" >> $GITHUB_OUTPUT
+          else
+            echo "Changed package files:"
+            echo "$FILES"
+            # Newline-separated list → space-separated for passing to the script
+            FILES_SPACE=$(echo "$FILES" | tr '\n' ' ')
+            echo "package_files=$FILES_SPACE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate versions and update summaries
+        if: steps.changed.outputs.package_files != ''
+        run: |
+          python .github/scripts/process_models.py \
+            --models-dir fcc_models \
+            ${{ steps.changed.outputs.package_files }}
+
+      - name: Commit updated summary files
+        if: steps.changed.outputs.package_files != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage only summary files (never re-stage user-submitted package files)
+          git add fcc_models/summary_*.yml
+
+          if git diff --cached --quiet; then
+            echo "No summary files changed; skipping commit."
+          else
+            git commit -m "chore: update model summaries after merging PR #${{ github.event.pull_request.number }}"
+            git push
+          fi
+
+      - name: Collect updated package files for artifact
+        if: steps.changed.outputs.package_files != ''
+        id: artifact-prep
+        run: |
+          mkdir -p /tmp/model-artifact
+          for f in ${{ steps.changed.outputs.package_files }}; do
+            cp "$f" /tmp/model-artifact/
+            # Also include the updated summary alongside it
+            PACKAGE=$(python -c "import yaml,sys; d=yaml.safe_load(open('$f')); print(d['package'])")
+            SUMMARY="fcc_models/summary_${PACKAGE}.yml"
+            [ -f "$SUMMARY" ] && cp "$SUMMARY" /tmp/model-artifact/
+          done
+          ls /tmp/model-artifact/
+
+      - name: Upload model artifact
+        if: steps.changed.outputs.package_files != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: fcc-models-pr-${{ github.event.pull_request.number }}
+          path: /tmp/model-artifact/
+          if-no-files-found: error
