@@ -1,4 +1,0 @@
-packages:
-  - package: delphes-card-fcc
-    version: "3.0"
-    source-location: http://example.com/delphes-card-fcc-3.0.tcl
