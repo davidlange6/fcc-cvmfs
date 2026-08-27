@@ -19,7 +19,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          # Fetch full history so we can diff against the PR base
           fetch-depth: 0
 
       - name: Set up Python
@@ -30,66 +29,71 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
 
-      - name: Find changed package files
+      - name: Find changed submission files
         id: changed
         run: |
           BASE=${{ github.event.pull_request.base.sha }}
           HEAD=${{ github.sha }}
 
-          # All yml files added or modified in fcc_models/ that are not summary files
+          # yml files added or modified in fcc_models/ that are not summary files
           FILES=$(git diff --name-only --diff-filter=AM "$BASE" "$HEAD" -- 'fcc_models/*.yml' \
                   | grep -v 'fcc_models/summary_' || true)
 
           if [ -z "$FILES" ]; then
-            echo "No non-summary model files changed. Nothing to do."
-            echo "package_files=" >> $GITHUB_OUTPUT
+            echo "No submission files changed. Nothing to do."
+            echo "submission_files=" >> $GITHUB_OUTPUT
           else
-            echo "Changed package files:"
+            echo "Changed submission files:"
             echo "$FILES"
-            # Newline-separated list → space-separated for passing to the script
             FILES_SPACE=$(echo "$FILES" | tr '\n' ' ')
-            echo "package_files=$FILES_SPACE" >> $GITHUB_OUTPUT
+            echo "submission_files=$FILES_SPACE" >> $GITHUB_OUTPUT
           fi
 
-      - name: Validate versions and update summaries
-        if: steps.changed.outputs.package_files != ''
+      - name: Collect submission files for artifact
+        if: steps.changed.outputs.submission_files != ''
+        run: |
+          mkdir -p /tmp/model-artifact
+          for f in ${{ steps.changed.outputs.submission_files }}; do
+            cp "$f" /tmp/model-artifact/
+          done
+
+      - name: Print artifact contents
+        if: steps.changed.outputs.submission_files != ''
+        run: |
+          echo "=== Artifact files ==="
+          ls /tmp/model-artifact/
+          echo ""
+          for f in /tmp/model-artifact/*; do
+            echo "=== $f ==="
+            cat "$f"
+            echo ""
+          done
+
+      - name: Validate and update summaries
+        if: steps.changed.outputs.submission_files != ''
         run: |
           python .github/scripts/process_models.py \
             --models-dir fcc_models \
-            ${{ steps.changed.outputs.package_files }}
+            ${{ steps.changed.outputs.submission_files }}
 
-      - name: Commit updated summary files
-        if: steps.changed.outputs.package_files != ''
+      - name: Commit summary updates and remove submission files
+        if: steps.changed.outputs.submission_files != ''
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage only summary files (never re-stage user-submitted package files)
-          git add fcc_models/summary_*.yml
+          # Stage summary updates and submission file deletions together
+          git add -u fcc_models/
 
           if git diff --cached --quiet; then
-            echo "No summary files changed; skipping commit."
+            echo "No changes to commit."
           else
-            git commit -m "chore: update model summaries after merging PR #${{ github.event.pull_request.number }}"
+            git commit -m "chore: process model submissions from PR #${{ github.event.pull_request.number }}"
             git push
           fi
 
-      - name: Collect updated package files for artifact
-        if: steps.changed.outputs.package_files != ''
-        id: artifact-prep
-        run: |
-          mkdir -p /tmp/model-artifact
-          for f in ${{ steps.changed.outputs.package_files }}; do
-            cp "$f" /tmp/model-artifact/
-            # Also include the updated summary alongside it
-            PACKAGE=$(python -c "import yaml,sys; d=yaml.safe_load(open('$f')); print(d['package'])")
-            SUMMARY="fcc_models/summary_${PACKAGE}.yml"
-            [ -f "$SUMMARY" ] && cp "$SUMMARY" /tmp/model-artifact/
-          done
-          ls /tmp/model-artifact/
-
       - name: Upload model artifact
-        if: steps.changed.outputs.package_files != ''
+        if: steps.changed.outputs.submission_files != ''
         uses: actions/upload-artifact@v7
         with:
           name: fcc-models-pr-${{ github.event.pull_request.number }}

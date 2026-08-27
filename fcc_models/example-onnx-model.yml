@@ -1,3 +1,4 @@
-package: example-onnx-model
-version: "1.0"
-source-location: http://example.com/example-onnx-model-1.0.root
+packages:
+  - package: example-onnx-model
+    version: "1.0"
+    source-location: http://example.com/example-onnx-model-1.0.root

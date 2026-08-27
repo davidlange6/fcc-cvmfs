@@ -1,0 +1,70 @@
+name: Check FCC Model Submissions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - 'fcc_models/*.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write  # needed to post PR comments
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Find changed submission files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'fcc_models/*.yml' \
+                  | grep -v 'fcc_models/summary_' || true)
+
+          if [ -z "$FILES" ]; then
+            echo "No submission files changed."
+            echo "submission_files=" >> $GITHUB_OUTPUT
+          else
+            FILES_SPACE=$(echo "$FILES" | tr '\n' ' ')
+            echo "submission_files=$FILES_SPACE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate submissions (dry run)
+        if: steps.changed.outputs.submission_files != ''
+        id: validate
+        run: |
+          set +e
+          OUTPUT=$(python .github/scripts/process_models.py \
+            --models-dir fcc_models \
+            --dry-run \
+            --output-format markdown \
+            ${{ steps.changed.outputs.submission_files }})
+          EXIT_CODE=$?
+          set -e
+
+          # Write multi-line output safely
+          {
+            echo "comment_body<<EOF"
+            echo "$OUTPUT"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+      - name: Post PR comment
+        if: steps.changed.outputs.submission_files != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "${{ steps.validate.outputs.comment_body }}"
