@@ -4,8 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
-    paths:
-      - 'fcc_models/*.yml'
+    # No paths filter — this job must always run so GitHub can record a
+    # status and branch protection can require it to pass before merging.
 
 jobs:
   validate:
@@ -32,7 +32,7 @@ jobs:
                   | grep -v 'fcc_models/summary_' || true)
 
           if [ -z "$FILES" ]; then
-            echo "No submission files changed."
+            echo "No fcc_models submission files changed — nothing to validate."
             echo "submission_files=" >> $GITHUB_OUTPUT
           else
             FILES_SPACE=$(echo "$FILES" | tr '\n' ' ')
@@ -68,3 +68,7 @@ jobs:
         run: |
           gh pr comment ${{ github.event.pull_request.number }} \
             --body "${{ steps.validate.outputs.comment_body }}"
+
+      - name: Fail if validation errors were found
+        if: steps.changed.outputs.submission_files != '' && steps.validate.outputs.exit_code != '0'
+        run: exit 1
