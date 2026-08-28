@@ -8,12 +8,22 @@ Create a YAML file (any name, e.g. `my-submission.yml`) with a `packages` list:
 
 ```yaml
 packages:
+  # Single file
   - package: my-onnx-model
     version: "1.0"
     source-location: http://example.com/my-onnx-model-1.0.root
+
+  # Multiple files (downloaded individually)
   - package: another-model
     version: "2.3"
-    source-location: http://example.com/another-model-2.3.onnx
+    source-location:
+      - http://example.com/another-model-2.3.onnx
+      - http://example.com/another-model-2.3-weights.bin
+
+  # Tarball (contents extracted into the version directory)
+  - package: delphes-card-fcc
+    version: "4.0"
+    source-location: http://example.com/delphes-card-fcc-4.0.tar.gz
 ```
 
 Open a pull request. A workflow will automatically validate your submission and post a comment with the result.

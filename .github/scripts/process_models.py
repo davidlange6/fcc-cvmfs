@@ -32,11 +32,20 @@ def summary_path(models_dir, package_name):
     return os.path.join(models_dir, f"summary_{package_name}.yml")
 
 
+def normalize_sources(entry):
+    """Return source-location as a list regardless of whether it was a string or list."""
+    src = entry["source-location"]
+    return src if isinstance(src, list) else [src]
+
+
 def validate_entry(entry, source_file):
     """Validate one package entry; return an error string or None."""
     missing = REQUIRED_FIELDS - set(entry.keys())
     if missing:
         return f"{source_file}: missing required fields: {sorted(missing)}"
+    src = entry["source-location"]
+    if not isinstance(src, (str, list)) or (isinstance(src, list) and not src):
+        return f"{source_file}: `source-location` must be a URL string or a non-empty list of URLs"
     return None
 
 
@@ -60,7 +69,6 @@ def update_summary(models_dir, entry):
     """Append the entry to its summary file, creating it if needed."""
     package = entry["package"]
     version = str(entry["version"])
-    source = entry["source-location"]
     spath = summary_path(models_dir, package)
 
     if os.path.exists(spath):
@@ -68,9 +76,10 @@ def update_summary(models_dir, entry):
     else:
         summary = {"package": package, "versions": []}
 
+    # Store as-is (string or list) to preserve what the user submitted
     summary["versions"].append({
         "version": version,
-        "source-location": source,
+        "source-location": entry["source-location"],
         "added": datetime.date.today().isoformat(),
     })
 
@@ -123,9 +132,10 @@ def process_file(models_dir, submission_file, dry_run):
         messages.append(f"  removed {submission_file}")
     else:
         for entry in entries:
+            sources = normalize_sources(entry)
+            src_display = sources[0] if len(sources) == 1 else f"{len(sources)} files"
             messages.append(
-                f"  OK: {entry['package']} v{entry['version']} "
-                f"({entry['source-location']})"
+                f"  OK: {entry['package']} v{entry['version']} ({src_display})"
             )
 
     return True, messages, updated_summaries
