@@ -1,0 +1,7 @@
+packages:
+  - package: higgs-ml-weights
+    version: "3.0"
+    source-location: http://example.com/higgs-ml-weights-3.0.root
+    readme: |
+      Higgs ML weights v3.0 — updated training with full FCC-ee run-3 dataset.
+      Improved signal/background separation at high pT. Requires ONNX runtime >= 1.16.

@@ -109,8 +109,8 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage summary updates and submission file deletions together
-          git add -u fcc_models/
+          # Stage new/updated summaries and submission file deletions
+          git add fcc_models/
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
