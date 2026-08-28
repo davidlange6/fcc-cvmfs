@@ -1,0 +1,5 @@
+package: higgs-ml-weights
+versions:
+- version: '3.0'
+  source-location: http://example.com/higgs-ml-weights-3.0.root
+  added: '2026-08-28'
