@@ -1,0 +1,15 @@
+packages:
+  # Single file download with a readme
+  - package: higgs-ml-weights
+    version: "2.0"
+    source-location: http://example.com/higgs-ml-weights-2.0.root
+    readme: |
+      Higgs ML weights v2.0 — retrained on full FCC-ee dataset.
+      Compatible with ONNX runtime >= 1.14.
+
+  # One plain file plus one tarball, no readme
+  - package: full-sim-config
+    version: "2.0"
+    source-location:
+      - http://example.com/full-sim-config-2.0.py
+      - http://example.com/full-sim-config-2.0-geant4-data.tar.gz
