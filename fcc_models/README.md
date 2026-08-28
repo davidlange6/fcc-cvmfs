@@ -15,6 +15,8 @@ packages:
     readme: |
       Optional human-readable description of this version.
       Stored as README.txt alongside the files on CVMFS.
+      Can also be a single URL pointing to external documentation:
+    # readme: https://example.com/my-onnx-model/docs
 
   # Multiple files (downloaded individually)
   - package: another-model
