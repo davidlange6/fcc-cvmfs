@@ -67,6 +67,18 @@ def check_duplicate(models_dir, entry, source_file):
     return None
 
 
+def get_inherited_readme(models_dir, package):
+    """Return readme from the most recent version in the summary, or None."""
+    spath = summary_path(models_dir, package)
+    if not os.path.exists(spath):
+        return None
+    summary = load_yaml(spath)
+    versions = summary.get("versions", [])
+    if not versions:
+        return None
+    return versions[-1].get("readme")
+
+
 def update_summary(models_dir, entry):
     """Append the entry to its summary file, creating it if needed."""
     package = entry["package"]
@@ -93,10 +105,11 @@ def update_summary(models_dir, entry):
     return spath
 
 
-def process_file(models_dir, submission_file, dry_run):
+def process_file(models_dir, submission_file, dry_run, artifact_dir=None):
     """
     Validate all entries in submission_file atomically, then (if not dry_run)
-    write summaries and delete the submission file.
+    inherit missing readmes from summaries, write summaries, write the resolved
+    submission YAML to artifact_dir (if given), and delete the submission file.
 
     Returns (ok: bool, messages: list[str], updated_summaries: list[str])
     """
@@ -128,6 +141,21 @@ def process_file(models_dir, submission_file, dry_run):
     updated_summaries = []
 
     if not dry_run:
+        # Inherit readme from most recent summary version when not specified
+        for entry in entries:
+            if "readme" not in entry:
+                inherited = get_inherited_readme(models_dir, entry["package"])
+                if inherited:
+                    entry["readme"] = inherited
+                    messages.append(f"  inherited readme for {entry['package']} v{entry['version']}")
+
+        # Write resolved submission YAML to artifact dir before deleting original
+        if artifact_dir:
+            os.makedirs(artifact_dir, exist_ok=True)
+            dest = os.path.join(artifact_dir, os.path.basename(submission_file))
+            with open(dest, "w") as f:
+                yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
         for entry in entries:
             spath = update_summary(models_dir, entry)
             updated_summaries.append(spath)
@@ -150,6 +178,7 @@ def main():
     parser.add_argument("submission_files", nargs="+", help="Submission YAML files to process")
     parser.add_argument("--models-dir", default="fcc_models")
     parser.add_argument("--dry-run", action="store_true", help="Validate only; do not write")
+    parser.add_argument("--artifact-dir", default=None, help="Write resolved submission YAMLs here")
     parser.add_argument(
         "--output-format",
         choices=["text", "markdown"],
@@ -163,7 +192,7 @@ def main():
     report_lines = []
 
     for sfile in args.submission_files:
-        ok, messages, updated = process_file(args.models_dir, sfile, args.dry_run)
+        ok, messages, updated = process_file(args.models_dir, sfile, args.dry_run, args.artifact_dir)
         all_ok = all_ok and ok
         all_updated_summaries.extend(updated)
 

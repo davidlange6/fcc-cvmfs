@@ -63,15 +63,12 @@ jobs:
             echo "artifact_name=fcc-models-${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Collect submission files for artifact
+      - name: Prepare artifact directory
         if: steps.changed.outputs.submission_files != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/model-artifact
-          for f in ${{ steps.changed.outputs.submission_files }}; do
-            cp "$f" /tmp/model-artifact/
-          done
           # Fetch PR body and write as pr.txt (Python handles multi-line content safely)
           gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
             > /tmp/pr_data.json 2>/dev/null || echo "[]" > /tmp/pr_data.json
@@ -101,6 +98,7 @@ jobs:
         run: |
           python .github/scripts/process_models.py \
             --models-dir fcc_models \
+            --artifact-dir /tmp/model-artifact \
             ${{ steps.changed.outputs.submission_files }}
 
       - name: Commit summary updates and remove submission files
@@ -109,8 +107,8 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage summary updates and submission file deletions together
-          git add -u fcc_models/
+          # Stage new/updated summaries and submission file deletions
+          git add fcc_models/
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
