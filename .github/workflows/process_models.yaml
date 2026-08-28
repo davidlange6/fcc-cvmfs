@@ -51,11 +51,15 @@ jobs:
 
       - name: Collect submission files for artifact
         if: steps.changed.outputs.submission_files != ''
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           mkdir -p /tmp/model-artifact
           for f in ${{ steps.changed.outputs.submission_files }}; do
             cp "$f" /tmp/model-artifact/
           done
+          # Write PR description as pr.txt (use env var to safely handle special characters)
+          python3 -c "import os; open('/tmp/model-artifact/pr.txt', 'w').write(os.environ['PR_BODY'])"
 
       - name: Print artifact contents
         if: steps.changed.outputs.submission_files != ''

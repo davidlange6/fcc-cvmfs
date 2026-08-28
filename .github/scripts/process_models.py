@@ -46,6 +46,8 @@ def validate_entry(entry, source_file):
     src = entry["source-location"]
     if not isinstance(src, (str, list)) or (isinstance(src, list) and not src):
         return f"{source_file}: `source-location` must be a URL string or a non-empty list of URLs"
+    if "readme" in entry and not isinstance(entry["readme"], str):
+        return f"{source_file}: `readme` must be a string"
     return None
 
 
@@ -76,12 +78,14 @@ def update_summary(models_dir, entry):
     else:
         summary = {"package": package, "versions": []}
 
-    # Store as-is (string or list) to preserve what the user submitted
-    summary["versions"].append({
+    record = {
         "version": version,
         "source-location": entry["source-location"],
         "added": datetime.date.today().isoformat(),
-    })
+    }
+    if "readme" in entry:
+        record["readme"] = entry["readme"]
+    summary["versions"].append(record)
 
     with open(spath, "w") as f:
         yaml.dump(summary, f, default_flow_style=False, sort_keys=False)

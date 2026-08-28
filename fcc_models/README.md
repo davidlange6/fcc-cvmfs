@@ -12,6 +12,9 @@ packages:
   - package: my-onnx-model
     version: "1.0"
     source-location: http://example.com/my-onnx-model-1.0.root
+    readme: |
+      Optional human-readable description of this version.
+      Stored as README.txt alongside the files on CVMFS.
 
   # Multiple files (downloaded individually)
   - package: another-model
@@ -20,11 +23,14 @@ packages:
       - http://example.com/another-model-2.3.onnx
       - http://example.com/another-model-2.3-weights.bin
 
-  # Tarball (contents extracted into the version directory)
+  # Tarball (contents extracted into the version directory;
+  # a single leading directory is stripped automatically)
   - package: delphes-card-fcc
     version: "4.0"
     source-location: http://example.com/delphes-card-fcc-4.0.tar.gz
 ```
+
+The PR description is automatically saved as `pr.txt` in every version directory deployed from that PR.
 
 Open a pull request. A workflow will automatically validate your submission and post a comment with the result.
 
