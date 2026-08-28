@@ -81,6 +81,14 @@ jobs:
               f.write(body or '')
           "
 
+      - name: Validate and update summaries
+        if: steps.changed.outputs.submission_files != ''
+        run: |
+          python .github/scripts/process_models.py \
+            --models-dir fcc_models \
+            --artifact-dir /tmp/model-artifact \
+            ${{ steps.changed.outputs.submission_files }}
+
       - name: Print artifact contents
         if: steps.changed.outputs.submission_files != ''
         run: |
@@ -92,14 +100,6 @@ jobs:
             cat "$f"
             echo ""
           done
-
-      - name: Validate and update summaries
-        if: steps.changed.outputs.submission_files != ''
-        run: |
-          python .github/scripts/process_models.py \
-            --models-dir fcc_models \
-            --artifact-dir /tmp/model-artifact \
-            ${{ steps.changed.outputs.submission_files }}
 
       - name: Commit summary updates and remove submission files
         if: steps.changed.outputs.submission_files != ''
