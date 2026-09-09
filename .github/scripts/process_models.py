@@ -18,6 +18,7 @@ import sys
 import os
 import datetime
 import hashlib
+import json
 import urllib.request
 import urllib.error
 import argparse
@@ -201,11 +202,14 @@ def process_file(models_dir, submission_file, dry_run, artifact_dir=None):
                 entry["sha256"] = [url_checksums[u] for u in sources]
             entry["added"] = added
 
-        # Write resolved submission YAML to artifact dir before deleting original
+        # Write resolved submission YAML and JSON sidecar to artifact dir
         if artifact_dir:
             dest = os.path.join(artifact_dir, os.path.basename(submission_file))
             with open(dest, "w") as f:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            json_dest = dest.rsplit(".", 1)[0] + ".json"
+            with open(json_dest, "w") as f:
+                json.dump(data, f, indent=2)
 
         for entry in entries:
             spath = update_summary(models_dir, entry, entry["sha256"], added)
