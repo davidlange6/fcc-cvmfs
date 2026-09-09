@@ -63,6 +63,8 @@ def validate_entry(entry, source_file):
         return f"{source_file}: `source-location` must be a URL string or a non-empty list of URLs"
     if "readme" in entry and not isinstance(entry["readme"], str):
         return f"{source_file}: `readme` must be a string"
+    if "directory" in entry and not isinstance(entry["directory"], str):
+        return f"{source_file}: `directory` must be a string"
     return None
 
 
@@ -111,6 +113,8 @@ def update_summary(models_dir, entry, sha256_info, added):
         "sha256": sha256_info,
         "added": added,
     }
+    if "directory" in entry:
+        record["directory"] = entry["directory"]
     if "readme" in entry:
         record["readme"] = entry["readme"]
     summary["versions"].append(record)
@@ -173,11 +177,14 @@ def process_file(models_dir, submission_file, dry_run, artifact_dir=None):
 
         url_checksums = {}  # url → sha256_hex
         for entry in entries:
+            subdir = entry.get("directory", "").lstrip("/")
+            dest_dir = os.path.join(dl_dir, subdir) if subdir else dl_dir
+            os.makedirs(dest_dir, exist_ok=True)
             for url in normalize_sources(entry):
                 if url in url_checksums:
                     continue
                 try:
-                    _, chksum = download_file(url, dl_dir)
+                    _, chksum = download_file(url, dest_dir)
                     url_checksums[url] = chksum
                     messages.append(f"  downloaded {url} (sha256: {chksum[:12]}…)")
                 except urllib.error.URLError as exc:
