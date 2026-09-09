@@ -17,6 +17,9 @@ Exit codes:
 import sys
 import os
 import datetime
+import hashlib
+import urllib.request
+import urllib.error
 import argparse
 import yaml
 
@@ -36,6 +39,18 @@ def normalize_sources(entry):
     """Return source-location as a list regardless of whether it was a string or list."""
     src = entry["source-location"]
     return src if isinstance(src, list) else [src]
+
+
+def download_file(url, dest_dir):
+    """Download url into dest_dir; return (local_path, sha256_hex)."""
+    filename = url.rsplit("/", 1)[-1] or "file"
+    dest = os.path.join(dest_dir, filename)
+    urllib.request.urlretrieve(url, dest)
+    digest = hashlib.sha256()
+    with open(dest, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            digest.update(chunk)
+    return dest, digest.hexdigest()
 
 
 def validate_entry(entry, source_file):
@@ -79,7 +94,7 @@ def get_inherited_readme(models_dir, package):
     return versions[-1].get("readme")
 
 
-def update_summary(models_dir, entry):
+def update_summary(models_dir, entry, sha256_info, added):
     """Append the entry to its summary file, creating it if needed."""
     package = entry["package"]
     version = str(entry["version"])
@@ -93,7 +108,8 @@ def update_summary(models_dir, entry):
     record = {
         "version": version,
         "source-location": entry["source-location"],
-        "added": datetime.date.today().isoformat(),
+        "sha256": sha256_info,
+        "added": added,
     }
     if "readme" in entry:
         record["readme"] = entry["readme"]
@@ -149,15 +165,39 @@ def process_file(models_dir, submission_file, dry_run, artifact_dir=None):
                     entry["readme"] = inherited
                     messages.append(f"  inherited readme for {entry['package']} v{entry['version']}")
 
-        # Write resolved submission YAML to artifact dir before deleting original
+        # Download all source files; collect checksums
         if artifact_dir:
             os.makedirs(artifact_dir, exist_ok=True)
+        dl_dir = artifact_dir or os.path.join(os.path.dirname(submission_file), ".dl_tmp")
+        os.makedirs(dl_dir, exist_ok=True)
+
+        url_checksums = {}  # url → sha256_hex
+        for entry in entries:
+            for url in normalize_sources(entry):
+                if url in url_checksums:
+                    continue
+                try:
+                    _, chksum = download_file(url, dl_dir)
+                    url_checksums[url] = chksum
+                    messages.append(f"  downloaded {url} (sha256: {chksum[:12]}…)")
+                except urllib.error.URLError as exc:
+                    return False, messages + [f"  failed to download {url}: {exc}"], []
+
+        added = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+        # Write resolved submission YAML to artifact dir before deleting original
+        if artifact_dir:
             dest = os.path.join(artifact_dir, os.path.basename(submission_file))
             with open(dest, "w") as f:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
         for entry in entries:
-            spath = update_summary(models_dir, entry)
+            sources = normalize_sources(entry)
+            if isinstance(entry["source-location"], str):
+                sha256_info = url_checksums[entry["source-location"]]
+            else:
+                sha256_info = [url_checksums[u] for u in sources]
+            spath = update_summary(models_dir, entry, sha256_info, added)
             updated_summaries.append(spath)
             messages.append(f"  updated {spath}")
         os.remove(submission_file)
