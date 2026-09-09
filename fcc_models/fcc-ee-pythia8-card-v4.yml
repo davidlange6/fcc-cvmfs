@@ -1,0 +1,5 @@
+packages:
+  - package: fcc-ee-pythia8-card
+    directory: /dummy-test
+    version: "4.0"
+    source-location: https://raw.githubusercontent.com/madminer-tool/madminer/main/examples/tutorial_particle_physics/cards/pythia8_card.dat
