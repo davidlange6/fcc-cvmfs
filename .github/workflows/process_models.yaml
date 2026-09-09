@@ -93,9 +93,10 @@ jobs:
         if: steps.changed.outputs.submission_files != ''
         run: |
           echo "=== Artifact files ==="
-          ls /tmp/model-artifact/
+          ls -l /tmp/model-artifact/
           echo ""
-          for f in /tmp/model-artifact/*; do
+          for f in /tmp/model-artifact/*.yml /tmp/model-artifact/pr.txt; do
+            [ -f "$f" ] || continue
             echo "=== $f ==="
             cat "$f"
             echo ""

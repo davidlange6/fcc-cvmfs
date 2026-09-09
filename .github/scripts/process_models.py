@@ -185,6 +185,15 @@ def process_file(models_dir, submission_file, dry_run, artifact_dir=None):
 
         added = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
+        # Annotate entries with sha256 + added so the artifact YAML is fully resolved
+        for entry in entries:
+            sources = normalize_sources(entry)
+            if isinstance(entry["source-location"], str):
+                entry["sha256"] = url_checksums[entry["source-location"]]
+            else:
+                entry["sha256"] = [url_checksums[u] for u in sources]
+            entry["added"] = added
+
         # Write resolved submission YAML to artifact dir before deleting original
         if artifact_dir:
             dest = os.path.join(artifact_dir, os.path.basename(submission_file))
@@ -192,12 +201,7 @@ def process_file(models_dir, submission_file, dry_run, artifact_dir=None):
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
         for entry in entries:
-            sources = normalize_sources(entry)
-            if isinstance(entry["source-location"], str):
-                sha256_info = url_checksums[entry["source-location"]]
-            else:
-                sha256_info = [url_checksums[u] for u in sources]
-            spath = update_summary(models_dir, entry, sha256_info, added)
+            spath = update_summary(models_dir, entry, entry["sha256"], added)
             updated_summaries.append(spath)
             messages.append(f"  updated {spath}")
         os.remove(submission_file)
