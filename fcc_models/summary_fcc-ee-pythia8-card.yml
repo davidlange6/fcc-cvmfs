@@ -4,3 +4,7 @@ versions:
   source-location: https://raw.githubusercontent.com/madminer-tool/madminer/main/examples/tutorial_particle_physics/cards/pythia8_card.dat
   sha256: 665911ba7ff0f86dff5e15ab810bdd4762de5e31f20337cae0603b4c06f7f802
   added: '2026-09-09T19:29:16+00:00'
+- version: '3.0'
+  source-location: https://raw.githubusercontent.com/madminer-tool/madminer/main/examples/tutorial_particle_physics/cards/pythia8_card.dat
+  sha256: 665911ba7ff0f86dff5e15ab810bdd4762de5e31f20337cae0603b4c06f7f802
+  added: '2026-09-09T19:38:54+00:00'
