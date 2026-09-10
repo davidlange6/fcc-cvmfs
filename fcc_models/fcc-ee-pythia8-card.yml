@@ -1,0 +1,8 @@
+packages:
+  - package: fcc-ee-pythia8-card
+    version: "1.0"
+    source-location: https://fccsw.web.cern.ch/fccsw/configs/fcc-ee-pythia8-card-1.0.cmd
+    readme: |
+      Pythia8 steering card for FCC-ee Z-pole running (91.2 GeV).
+      Includes ISR corrections and Bhabha scattering veto.
+      Compatible with Pythia 8.309 and later.
